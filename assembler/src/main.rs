@@ -12,6 +12,7 @@ fn main() {
 
     assembler.print_intermediate_code();
     assembler.print_symbol_table();
+    assembler.print_error_table();
 }
 
 fn read_lines<P>(filename: P) -> io::Result<Vec<String>>

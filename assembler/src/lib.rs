@@ -376,4 +376,14 @@ impl Assembler {
             );
         }
     }
+
+    pub fn print_error_table(&self) {
+        println!("Error Table:");
+        for symbol in &self.error_table {
+            println!(
+                "Line number: {}, Error type: {:?}",
+                symbol.line_number, symbol.error_type
+            );
+        }
+    }
 }
