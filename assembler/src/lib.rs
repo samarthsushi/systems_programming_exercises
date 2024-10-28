@@ -198,63 +198,60 @@ impl Assembler {
                 "END" => {
                     break;
                 }
-                "DS" => {
-                    if let Some(size_str) = tokens.next() {
-                        let size: usize = size_str.parse().expect("Invalid DS size");
-                        self.location_counter += size;
-                    }
-                }
-                "DC" => {
-                    if let Some(value_str) = tokens.next() {
-                        let value: usize = value_str.parse().expect("Invalid DC value");
-                        self.intermediate_code_table.push(IntermediateCode {
-                            address: self.location_counter,
-                            opcode: 12,
-                            reg: None,
-                            kind: ValueKind::Constant,
-                            value,
-                        });
-                        self.location_counter += 1;
-                    }
-                }
-                "ADD" | "SUB" | "MUL" | "DIV" | "MOVER" | "MOVEM" | "COMP" => {
-                    let opcode = match mnemonic {
-                        "ADD" => 1,
-                        "SUB" => 2,
-                        "MUL" => 3,
-                        "DIV" => 8,
-                        "MOVER" => 4,
-                        "MOVEM" => 5,
-                        "COMP" => 6,
-                        _ => unreachable!(),
-                    };
-                    let (reg_code, kind, value) = self.process_operands(&mut tokens);
-                    self.generate_intermediate_code(opcode, reg_code, kind, value);
-                }
-                "READ" | "PRINT" => {
-                    let opcode = if mnemonic == "READ" { 9 } else { 10 };
-                    if let Some(operand) = tokens.next() {
-                        let value = self.add_symbol(operand.to_string());
-                        self.generate_intermediate_code(opcode, None, ValueKind::Symbol, value);
-                    }
-                }
-                "BC" => {
-                    if let Some(cond_code) = tokens.next() {
-                        let reg_code = self.condition_code_table.iter().find(|c| c.name == cond_code).map(|c| c.code);
-                        if let Some(label) = tokens.next() {
-                            let value = self.add_symbol(label.to_string());
-                            self.generate_intermediate_code(7, reg_code, ValueKind::Symbol, value);
+                _ => {
+                    if let Some(opcode_entry) = self.opcode_table.iter().find(|op| op.name == mnemonic) {
+                        let opcode_code = opcode_entry.code;
+        
+                        match opcode_code {
+                            0 => {
+                                self.generate_intermediate_code(0, None, ValueKind::Constant, 0); 
+                            }
+                            1 | 2 | 3 | 8 | 4 | 5 | 6 => {
+                                let (reg_code, kind, value) = self.process_operands(&mut tokens);
+                                self.generate_intermediate_code(opcode_code, reg_code, kind, value);
+                            }
+                            9 | 10 => {
+                                if let Some(operand) = tokens.next() {
+                                    let value = self.add_symbol(operand.to_string());
+                                    self.generate_intermediate_code(opcode_code, None, ValueKind::Symbol, value);
+                                }
+                            }
+                            7 => {
+                                if let Some(cond_code) = tokens.next() {
+                                    let reg_code = self.condition_code_table.iter().find(|c| c.name == cond_code).map(|c| c.code);
+                                    if let Some(label) = tokens.next() {
+                                        let value = self.add_symbol(label.to_string());
+                                        self.generate_intermediate_code(7, reg_code, ValueKind::Symbol, value);
+                                    }
+                                }
+                            }
+                            11 => {
+                                if let Some(size_str) = tokens.next() {
+                                    let size: usize = size_str.parse().expect("Invalid DS size");
+                                    self.location_counter += size;
+                                }
+                            }
+                            12 => {
+                                if let Some(value_str) = tokens.next() {
+                                    let value: usize = value_str.parse().expect("Invalid DC value");
+                                    self.intermediate_code_table.push(IntermediateCode {
+                                        address: self.location_counter,
+                                        opcode: 12,
+                                        reg: None,
+                                        kind: ValueKind::Constant,
+                                        value,
+                                    });
+                                    self.location_counter += 1;
+                                }
+                            }
+                            _ => {
+                                self.error_table.push(Error {
+                                    line_number,
+                                    error_type: ErrorType::UnknownMnemonic,
+                                });
+                            }
                         }
                     }
-                }
-                "STOP" => {
-                    self.generate_intermediate_code(0, None, ValueKind::Constant, 0);
-                }
-                _ => {
-                    self.error_table.push(Error {
-                        line_number,
-                        error_type: ErrorType::UnknownMnemonic,
-                    });
                 }
             }
         }
