@@ -134,11 +134,11 @@ struct IntermediateCode {
 
 #[derive(Debug)]
 enum ErrorType {
-    MissingOperand,
-    ExtraOperand,
-    NoSymbolFound,
     InvalidValue,
-    UnknownMnemonic
+    UnknownMnemonic,
+    InvalidOperand,
+    MissingLabel,
+    MissingConditionCode
 }
 
 struct Error {
@@ -189,76 +189,104 @@ impl Assembler {
                 self.add_symbol_as_label(label.to_string());
             }
 
-            match mnemonic {
-                "START" => {
-                    if let Some(addr_str) = tokens.next() {
-                        self.location_counter = addr_str.parse().expect("Invalid START address");
-                    }
+            if self.handle_start_and_end(mnemonic, &mut tokens) {
+                continue;
+            }
+
+            if let Some(opcode_entry) = self.opcode_table.iter().find(|op| op.name == mnemonic) {
+                self.process_opcode(opcode_entry.code, &mut tokens, line_number);
+            } else {
+                self.error_table.push(Error {
+                    line_number,
+                    error_type: ErrorType::UnknownMnemonic,
+                });
+            }
+        }
+    }
+
+    fn handle_start_and_end(&mut self, mnemonic: &str, tokens: &mut std::str::SplitWhitespace) -> bool {
+        match mnemonic {
+            "START" => {
+                if let Some(addr_str) = tokens.next() {
+                    self.location_counter = addr_str.parse().expect("Invalid START address");
                 }
-                "END" => {
-                    break;
-                }
-                _ => {
-                    if let Some(opcode_entry) = self.opcode_table.iter().find(|op| op.name == mnemonic) {
-                        let opcode_code = opcode_entry.code;
-        
-                        match opcode_code {
-                            0 => {
-                                self.generate_intermediate_code(0, None, ValueKind::Constant, 0); 
-                            }
-                            1 | 2 | 3 | 8 | 4 | 5 | 6 => {
-                                let (reg_code, kind, value) = self.process_operands(&mut tokens);
-                                self.generate_intermediate_code(opcode_code, reg_code, kind, value);
-                            }
-                            9 | 10 => {
-                                if let Some(operand) = tokens.next() {
-                                    let value = self.add_symbol(operand.to_string());
-                                    self.generate_intermediate_code(opcode_code, None, ValueKind::Symbol, value);
-                                }
-                            }
-                            7 => {
-                                if let Some(cond_code) = tokens.next() {
-                                    let reg_code = self.condition_code_table.iter().find(|c| c.name == cond_code).map(|c| c.code);
-                                    if let Some(label) = tokens.next() {
-                                        let value = self.add_symbol(label.to_string());
-                                        self.generate_intermediate_code(7, reg_code, ValueKind::Symbol, value);
-                                    }
-                                }
-                            }
-                            11 => {
-                                if let Some(size_str) = tokens.next() {
-                                    let size: usize = size_str.parse().expect("Invalid DS size");
-                                    self.location_counter += size;
-                                }
-                            }
-                            12 => {
-                                if let Some(value_str) = tokens.next() {
-                                    let value: usize = value_str.parse().expect("Invalid DC value");
-                                    self.intermediate_code_table.push(IntermediateCode {
-                                        address: self.location_counter,
-                                        opcode: 12,
-                                        reg: None,
-                                        kind: ValueKind::Constant,
-                                        value,
-                                    });
-                                    self.location_counter += 1;
-                                }
-                            }
-                            _ => {
-                                self.error_table.push(Error {
-                                    line_number,
-                                    error_type: ErrorType::UnknownMnemonic,
-                                });
-                            }
-                        }
-                    }
+                true
+            }
+            "END" => {
+                true
+            }
+            _ => false
+        }
+    }
+
+    fn process_opcode(&mut self, opcode_code: usize, tokens: &mut std::str::SplitWhitespace, line_number: usize) {
+        match opcode_code {
+            0 => self.generate_intermediate_code(0, None, ValueKind::Constant, 0),
+            1 | 2 | 3 | 8 | 4 | 5 | 6 => {
+                let (reg_code, kind, value) = self.process_operands(tokens);
+                self.generate_intermediate_code(opcode_code, reg_code, kind, value);
+            }
+            9 | 10 => {
+                if let Some(operand) = tokens.next() {
+                    let value = self.add_symbol(operand.to_string());
+                    self.generate_intermediate_code(opcode_code, None, ValueKind::Symbol, value);
                 }
             }
+            7 => {
+                if let Some(cond_code) = tokens.next() {
+                    let reg_code = self.condition_code_table.iter().find(|c| c.name == cond_code).map(|c| c.code);
+                    
+                    if let Some(label) = tokens.next() {
+                        let value = self.add_symbol(label.to_string());
+                        self.generate_intermediate_code(7, reg_code, ValueKind::Symbol, value);
+                    } else {
+                        self.error_table.push(Error {
+                            line_number,
+                            error_type: ErrorType::MissingLabel,
+                        });
+                    }
+                } else {
+                    self.error_table.push(Error {
+                        line_number,
+                        error_type: ErrorType::MissingConditionCode,
+                    });
+                }
+            }
+            11 => self.process_ds(tokens),
+            12 => self.process_dc(tokens, line_number),
+            _ => unreachable!()
+        }
+    }
+
+    fn process_ds(&mut self, tokens: &mut std::str::SplitWhitespace) {
+        if let Some(size_str) = tokens.next() {
+            let size: usize = size_str.parse().expect("Invalid DS size");
+            self.location_counter += size;
+        }
+    }
+
+    fn process_dc(&mut self, tokens: &mut std::str::SplitWhitespace, line_number: usize) {
+        if let Some(value_str) = tokens.next() {
+            let value: usize = value_str.parse().expect("Invalid DC value");
+            self.intermediate_code_table.push(IntermediateCode {
+                address: self.location_counter,
+                opcode: 12,
+                reg: None,
+                kind: ValueKind::Constant,
+                value,
+            });
+            self.location_counter += 1;
+        } else {
+            self.error_table.push(Error {
+                line_number,
+                error_type: ErrorType::InvalidOperand,
+            });
         }
     }
 
     fn add_symbol(&mut self, name: String) -> usize {
         if let Some(symbol) = self.symbol_table.iter_mut().find(|sym| sym.name == name) {
+            symbol.used = true;
             symbol.address
         } else {
             self.symbol_table.push(Symbol {
