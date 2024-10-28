@@ -291,6 +291,7 @@ impl Assembler {
         }
     }
 
+    #[inline]
     fn process_operands(&mut self, tokens: &mut dyn Iterator<Item = &str>) -> (Option<usize>, ValueKind, usize) {
         let mut reg_code = None;
         let mut kind = ValueKind::Symbol;
