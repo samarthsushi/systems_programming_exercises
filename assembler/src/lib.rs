@@ -138,7 +138,8 @@ enum ErrorType {
     UnknownMnemonic,
     InvalidOperand,
     MissingLabel,
-    MissingConditionCode
+    MissingConditionCode,
+    UndefinedSymbol(String)
 }
 
 struct Error {
@@ -202,6 +203,8 @@ impl Assembler {
                 });
             }
         }
+
+        self.check_undefined_symbols();
     }
 
     fn handle_start_and_end(&mut self, mnemonic: &str, tokens: &mut std::str::SplitWhitespace) -> bool {
@@ -355,6 +358,17 @@ impl Assembler {
             value,
         });
         self.location_counter += 1;
+    }
+
+    fn check_undefined_symbols(&mut self) {
+        for symbol in &self.symbol_table {
+            if symbol.used && !symbol.defined {
+                self.error_table.push(Error {
+                    line_number: 0, 
+                    error_type: ErrorType::UndefinedSymbol(symbol.name.clone()),
+                });
+            }
+        }
     }
 
     pub fn print_intermediate_code(&self) {
