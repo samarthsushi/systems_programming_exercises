@@ -40,10 +40,6 @@ impl MacroProcessor {
             }
             expanded_lines.push(trimmed_line.to_string());
         }
-        println!("{:?}", self.macros);
-        for line in &expanded_lines {
-            println!("{}", line);
-        }
         expanded_lines
     }
 
@@ -59,11 +55,17 @@ impl MacroProcessor {
         let mut param_w_value = std::collections::HashMap::new();
         for param in tokens {
             if let Some((key, value)) = param.split_once('=') {
-                param_w_value.insert(key.to_string().clone(), Some(value.to_string()));
-                params.push(key.to_string());
+                if key.starts_with('&') {
+                    let param_name = key.trim_start_matches('&').to_string(); 
+                    param_w_value.insert(param_name.clone(), Some(value.to_string()));
+                    params.push(param_name); 
+                }
             } else {
-                param_w_value.insert(param.to_string(), None);
-                params.push(param.to_string());
+                if param.starts_with('&') {
+                    let param_name = param.trim_start_matches('&').to_string();
+                    param_w_value.insert(param_name.clone(), None);
+                    params.push(param_name); 
+                }
             }
             
         }
@@ -94,14 +96,29 @@ impl MacroProcessor {
         I: Iterator<Item = &'a str>,
     {
         let mut resolved_params = macro_metadata.param_w_value.clone();
+        let mut iter = tokens.peekable();
 
-        for (i, param_value) in tokens.enumerate() {
-            if let Some(formal_param) = macro_metadata.params.get(i) {
-                resolved_params.insert(formal_param.clone(), Some(param_value.to_string()));
+        let mut i = 0;
+        while let Some(token) = iter.peek() {
+            if token.contains('=') {
+                break;
+            }
+
+            if let Some(param_value) = iter.next() {
+                if let Some(formal_param) = macro_metadata.params.get(i) {
+                    resolved_params.insert(formal_param.clone(), Some(param_value.to_string()));
+                }
+                i += 1;
             }
         }
 
-        println!("{:?}", resolved_params);
+        for token in iter {
+            if let Some((key, value)) = token.split_once('=') {
+                if resolved_params.contains_key(key) {
+                    resolved_params.insert(key.to_string(), Some(value.to_string()));
+                }
+            }
+        }
 
         macro_metadata
             .body
@@ -110,11 +127,11 @@ impl MacroProcessor {
                 let mut expanded_line = line.clone();
                 for (formal_param, value) in &resolved_params {
                     if let Some(actual_value) = value {
-                        expanded_line = expanded_line.replace(formal_param, actual_value);
+                        expanded_line = expanded_line.replace(&format!("&{}", formal_param), actual_value);
                     }
                 }
                 expanded_line
             })
             .collect()
-        }
+    }
 }
