@@ -47,7 +47,7 @@ impl SMAC0 {
     }
 
     pub fn load_program(&mut self, filename: &str) {
-        let contents = fs::read_to_string(filename)
+        let contents = fs::read_to_string("data/"filename)
             .expect("should have been able to read the file");
         self.parse_file(contents);
     }
