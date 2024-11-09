@@ -3,7 +3,7 @@ use std::io::{self, BufRead};
 use std::path::Path;
 
 fn main() {
-    let file_path = r"C:\codes\systems_programming_exercises\assembler\test.asm";
+    let file_path = r"C:\codes\systems_programming_exercises\assembler\data\test.asm";
 
     let source_lines = read_lines(file_path).expect("Failed to read file");
 
