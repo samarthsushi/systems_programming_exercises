@@ -31,3 +31,31 @@ impl DFA {
         self.final_states.contains(&state)
     }
 }
+
+struct DFADriver {
+    dfa: DFA,
+    current_state: usize
+}
+
+impl DFADriver {
+    fn new(dfa: DFA, start_state: usize) -> Self {
+        Self {
+            dfa,
+            current_state: start_state
+        }
+    }
+
+    fn validate(&mut self, input: &[usize]) -> bool {
+        self.current_state = 0; 
+
+        for &symbol in input {
+            if symbol >= self.dfa.num_symbols {
+                eprintln!("ERR: symbol {} is not valid for this DFA", symbol);
+                return false;
+            }
+            self.current_state = self.dfa.delta[self.current_state][symbol];
+        }
+
+        self.dfa.is_final_state(self.current_state)
+    }
+}
