@@ -137,3 +137,90 @@ impl DFA {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dfa_inner_creation_and_transition() {
+        let mut dfa_inner = DFAInner::new();
+        dfa_inner.build(3, 2); 
+
+        dfa_inner.set_transition(0, 0, 1);
+        dfa_inner.set_transition(0, 1, 2);
+        dfa_inner.set_transition(1, 0, 2);
+        dfa_inner.set_transition(1, 1, 0);
+
+        dfa_inner.add_final_state(2);
+
+        assert_eq!(dfa_inner.delta[0][0], 1);
+        assert_eq!(dfa_inner.delta[0][1], 2);
+        assert_eq!(dfa_inner.delta[1][0], 2);
+        assert_eq!(dfa_inner.delta[1][1], 0);
+
+        assert!(dfa_inner.is_final_state(2));
+        assert!(!dfa_inner.is_final_state(1));
+    }
+
+    #[test]
+    fn test_dfa_validation() {
+        let mut dfa_inner = DFAInner::new();
+        dfa_inner.build(3, 2);
+
+        dfa_inner.set_transition(0, 0, 1);
+        dfa_inner.set_transition(0, 1, 2);
+        dfa_inner.set_transition(1, 0, 2);
+        dfa_inner.set_transition(1, 1, 0);
+
+        dfa_inner.add_final_state(0);
+
+        let mut dfa = DFA::new(dfa_inner, 0);
+
+        assert!(dfa.validate(&[0, 1]));
+        assert!(dfa.validate(&[]));
+        assert!(!dfa.validate(&[1]));    
+        assert!(!dfa.validate(&[0, 0])); 
+        assert!(!dfa.validate(&[2])); 
+    }
+
+    #[test]
+    fn test_dfa_from_string() {
+        let dfa_input = r#"
+        states: 3
+        symbols: 2
+        start_state: 0
+        final_states: 0
+        transitions:
+        0 0 1
+        0 1 2
+        1 0 2
+        1 1 0
+        "#;
+
+        let mut dfa = DFA::from_string(dfa_input);
+
+        assert!(dfa.validate(&[0, 1]));
+        assert!(dfa.validate(&[]));
+        assert!(!dfa.validate(&[1]));    
+        assert!(!dfa.validate(&[0, 0])); 
+        assert!(!dfa.validate(&[2])); 
+    }
+
+    #[test]
+    fn test_dfa_no_final_states() {
+        let dfa_input = r#"
+        states: 2
+        symbols: 2
+        start_state: 0
+        final_states:
+        transitions:
+        0 0 1
+        0 1 0
+        "#;
+
+        let mut dfa = DFA::from_string(dfa_input);
+
+        assert!(!dfa.validate(&[0]));
+        assert!(!dfa.validate(&[1]));
+    }
+}
