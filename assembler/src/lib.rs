@@ -56,11 +56,11 @@ const CONDITIONTABLE: [ConditionCodeStr; 6] = [
     ConditionCodeStr { name: "ANY", code: 5},
 ];
 
-struct Symbol {
-    name: String,
-    address: usize,
-    defined: bool,
-    used: bool,
+pub struct Symbol {
+    pub name: String,
+    pub address: usize,
+    pub defined: bool,
+    pub used: bool,
 }
 
 struct OpcodeStr {
@@ -118,18 +118,18 @@ struct ConditionCode {
     code: usize,
 }
 
-#[derive(Debug)]
-enum ValueKind {
+#[derive(Debug, PartialEq)]
+pub enum ValueKind {
     Symbol,
     Constant,
 }
 
-struct IntermediateCode {
-    address: usize,
-    opcode: usize,
-    reg: Option<usize>,
-    kind: ValueKind,
-    value: usize,
+pub struct IntermediateCode {
+    pub address: usize,
+    pub opcode: usize,
+    pub reg: Option<usize>,
+    pub kind: ValueKind,
+    pub value: usize,
 }
 
 #[derive(Debug)]
@@ -142,18 +142,18 @@ enum ErrorType {
     UndefinedSymbol(String)
 }
 
-struct Error {
+pub struct Error {
     line_number: usize,
     error_type: ErrorType,
 }
 
 pub struct Assembler {
-    symbol_table: Vec<Symbol>,
+    pub symbol_table: Vec<Symbol>,
     opcode_table: Vec<Opcode>,
     register_table: Vec<Register>,
     condition_code_table: Vec<ConditionCode>,
-    intermediate_code_table: Vec<IntermediateCode>,
-    error_table: Vec<Error>,
+    pub intermediate_code_table: Vec<IntermediateCode>,
+    pub error_table: Vec<Error>,
     location_counter: usize,
 }
 
